@@ -3,7 +3,8 @@
     // Extension identifier format: ${publisher}.${name}. Example: vscode.csharp
     // List of extensions which should be recommended for users of this workspace.
     "recommendations": [
-        "ms-python.python", // micropy-cli: required for vscode micropython integrations
-        "VisualStudioExptTeam.vscodeintellicode" // micropy-cli: optional for advanced intellisense
+        "ms-python.python",
+        "visualstudioexptteam.vscodeintellicode",
+        "chriswood.pico-go"
     ]
 }
