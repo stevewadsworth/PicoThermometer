@@ -22,7 +22,6 @@ Implementation Notes
 """
 
 import time
-import machine
 from micropython import const
 
 AHTX0_I2CADDR_DEFAULT = const(0x38)  # Default I2C address

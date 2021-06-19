@@ -1,129 +1,92 @@
 # main.py
 import sys
-sys.path.append('/src')
 import gc
 
 import utime
 
-import machine
-from AHTx0 import *
-from scan_i2c import *
+from machine import Pin
+from machine import I2C
 
-sda = machine.Pin(4)
-scl = machine.Pin(5)
-i2c = machine.I2C(0, sda=sda, scl=scl, freq=400000)
-scan_bus(i2c)
+sys.path.append('/src')
 
-sensor = AHTx0(i2c)
+from AHTx0 import AHTx0
+from Button import Button
+import screens.text as text
+import screens.humidity_graph as humidity_graph
+import screens.temperature_graph as temperature_graph
 
 # Pico Display boilerplate
 import picodisplay as display
-width = display.get_width()
-height = display.get_height()
 gc.collect()
-display_buffer = bytearray(width * height * 2)
+display_buffer = bytearray(display.get_width() * display.get_height() * 2)
 display.init(display_buffer)
-
-bar_width = 5
-temp_min = 10
-temp_max = 30
 
 # Set the display backlight to 50%
 display.set_backlight(0.5)
 
+bar_width = 5
+
+SCREEN_REFRESH_SECONDS = 5
+BUTTON_SCAN_SECONDS = 0.1
+
+layout_to_use = 0
+
+# Define the buttons on the pico display
+button_A = Button(Pin(12, Pin.IN, Pin.PULL_UP))
+button_B = Button(Pin(13, Pin.IN, Pin.PULL_UP))
+button_X = Button(Pin(14, Pin.IN, Pin.PULL_UP))
+button_Y = Button(Pin(15, Pin.IN, Pin.PULL_UP))
+
+def button_next(x):
+    global layout_to_use
+    layout_to_use += 1
+    if layout_to_use >= len(layouts):
+        layout_to_use = 0
+
+def button_prev(x):
+    global layout_to_use
+    layout_to_use -= 1
+    if layout_to_use < 0:
+        layout_to_use = len(layouts) - 1
+
+button_A.on_press(button_next)
+button_B.on_press(button_prev)
+
+sda = Pin(4)
+scl = Pin(5)
+i2c = I2C(0, sda=sda, scl=scl, freq=400000)
+
+sensor = AHTx0(i2c)
+
 humidities = []
 temperatures = []
 
-def displayText(temperatures, humidities):
-    # fills the screen with black
-    display.set_pen(0, 0, 0)
-    display.clear()
-
-    display.set_pen(255, 255, 255)
-    display.text("{:.2f}".format(temperatures[-1]) + "c", 10, 10, 0, 6)
-    display.text("{:.2f}".format(humidities[-1]) + "%", 10, (height // 2) + 10 , 0, 6)
-
-colors = [(0, 0, 255), (0, 255, 0), (255, 255, 0), (255, 0, 0)]
-
-def temperature_to_color(temp):
-    temp = min(temp, temp_max)
-    temp = max(temp, temp_min)
-
-    f_index = float(temp - temp_min) / float(temp_max - temp_min)
-    f_index *= len(colors) - 1
-    index = int(f_index)
-
-    if index == len(colors) - 1:
-        return colors[index]
-
-    blend_b = f_index - index
-    blend_a = 1.0 - blend_b
-
-    a = colors[index]
-    b = colors[index + 1]
-
-    return [int((a[i] * blend_a) + (b[i] * blend_b)) for i in range(3)]
-
-def displayTemp(temperatures, humidities):
-    i = 0
-    for t in temperatures:
-        # chooses a pen colour based on the temperature
-        display.set_pen(*temperature_to_color(t))
-
-        # draws the reading as a tall, thin rectangle
-        display.rectangle(i, height - (round(t) * 4), bar_width, height)
-
-        # the next tall thin rectangle needs to be drawn
-        # "bar_width" (default: 5) pixels to the right of the last one
-        i += bar_width
-
-    # draws a white background for the text
-    display.set_pen(255, 255, 255)
-    display.rectangle(1, 1, 100, 25)
-
-    # writes the reading as text in the white rectangle
-    display.set_pen(0, 0, 0)
-    display.text("{:.2f}".format(temperatures[-1]) + "c", 3, 3, 0, 3)
-
-def displayHumidity(temperatures, humidities):
-    i = 0
-    for t in humidities:
-        # chooses a pen colour
-        display.set_pen(0, 0, 255)
-
-        # draws the reading as a tall, thin rectangle
-        display.rectangle(i, round((height / 100) * round(100 - t)), bar_width, height)
-
-        # the next tall thin rectangle needs to be drawn
-        # "bar_width" (default: 5) pixels to the right of the last one
-        i += bar_width
-
-    # draws a white background for the text
-    display.set_pen(255, 255, 255)
-    display.rectangle(1, 1, 100, 25)
-
-    # writes the reading as text in the white rectangle
-    display.set_pen(0, 0, 0)
-    display.text("{:.2f}".format(humidities[-1]) + "%", 3, 3, 0, 3)
-
+layouts = [
+    text,
+    temperature_graph,
+    humidity_graph
+]
 
 while True:
     humidities.append(sensor.relative_humidity)
     temperatures.append(sensor.temperature)
 
     # shifts the history to the left by one sample
-    if len(humidities) > width // bar_width:
+    if len(humidities) > display.get_width() // bar_width:
         humidities.pop(0)
 
-    if len(temperatures) > width // bar_width:
+    if len(temperatures) > display.get_width() // bar_width:
         temperatures.pop(0)
 
-    #displayTemp(temperatures, humidities)
-    #displayText(temperatures, humidities)
-    displayHumidity(temperatures, humidities)
+    for i in range(0, SCREEN_REFRESH_SECONDS // BUTTON_SCAN_SECONDS):
 
-    # time to update the display
-    display.update()
+        # fills the screen with black
+        display.set_pen(0, 0, 0)
+        display.clear()
 
-    # waits for 5 seconds
-    utime.sleep(5)
+        layouts[layout_to_use].show(display, temperatures, humidities)
+
+        # time to update the display
+        display.update()
+
+        utime.sleep(BUTTON_SCAN_SECONDS)
