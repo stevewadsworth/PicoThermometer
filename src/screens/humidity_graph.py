@@ -1,10 +1,12 @@
+from Results import Results
+
 bar_width = 5
 temp_min = 10
 temp_max = 30
 
-def show(display, temperatures, humidities):
+def show(display, temperatures:Results, humidities:Results):
     i = 0
-    for t in humidities:
+    for t in humidities.values:
         # chooses a pen colour
         display.set_pen(0, 0, 255)
 
@@ -21,4 +23,4 @@ def show(display, temperatures, humidities):
 
     # writes the reading as text in the white rectangle
     display.set_pen(0, 0, 0)
-    display.text("{:.2f}".format(humidities[-1]) + "%", 3, 3, 0, 3)
+    display.text("{:.2f}".format(humidities.values[-1]) + "%", 3, 3, 0, 3)

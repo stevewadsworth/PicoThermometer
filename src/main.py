@@ -15,6 +15,8 @@ import screens.text as text
 import screens.humidity_graph as humidity_graph
 import screens.temperature_graph as temperature_graph
 
+from Results import Results
+
 # Pico Display boilerplate
 import picodisplay as display
 gc.collect()
@@ -58,8 +60,8 @@ i2c = I2C(0, sda=sda, scl=scl, freq=400000)
 
 sensor = AHTx0(i2c)
 
-humidities = []
-temperatures = []
+humidities = Results(max_results=display.get_width() // bar_width, sensor=lambda : sensor.relative_humidity)
+temperatures = Results(max_results=display.get_width() // bar_width, sensor=lambda : sensor.temperature)
 
 layouts = [
     text,
@@ -68,16 +70,6 @@ layouts = [
 ]
 
 while True:
-    humidities.append(sensor.relative_humidity)
-    temperatures.append(sensor.temperature)
-
-    # shifts the history to the left by one sample
-    if len(humidities) > display.get_width() // bar_width:
-        humidities.pop(0)
-
-    if len(temperatures) > display.get_width() // bar_width:
-        temperatures.pop(0)
-
     for i in range(0, SCREEN_REFRESH_SECONDS // BUTTON_SCAN_SECONDS):
 
         # fills the screen with black
